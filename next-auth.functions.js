@@ -44,9 +44,9 @@ require('dotenv').load()
 // This config file uses MongoDB for User accounts, as well as session storage.
 // This config includes options for NeDB, which it defaults to if no DB URI 
 // is specified. NeDB is an in-memory only database intended here for testing.
-const MongoClient = require('mongodb').MongoClient
+const MYSQLClient = require('mysql')
 const NeDB = require('nedb')
-const MongoObjectId = (process.env.MONGO_URI) ? require('mongodb').ObjectId : (id) => { return id }
+
 
 // Use Node Mailer for email sign in
 const nodemailer = require('nodemailer')
@@ -69,14 +69,31 @@ if (process.env.EMAIL_SERVER && process.env.EMAIL_USERNAME && process.env.EMAIL_
         
 module.exports = () => {
   return new Promise((resolve, reject) => {
-    if (process.env.MONGO_URI) { 
+    if (process.env.MYSQL_URI) { 
       // Connect to MongoDB Database and return user connection
-      MongoClient.connect(process.env.MONGO_URI, (err, mongoClient) => {
-        if (err) return reject(err)
-        const dbName = process.env.MONGO_URI.split('/').pop().split('?').shift()
-        const db = mongoClient.db(dbName)
-        return resolve(db.collection('users'))
+      
+      const connection = MYSQLClient.createConnection({
+        host: 'localhost',
+        port: 3306,
+        user: 'starter_user', 
+        password: 'starterPW1!', 
+        database: 'starter' 
       })
+      connection.connect((err) => {
+        if (err) return reject(err)
+        console.log('Connected!');
+        connection.query('SELECT * FROM users', (err,rows) => {
+          if (err) return reject(err)
+          console.log('Data received from Db:\n');
+          console.log(rows);
+          return resolve(rows)
+        });
+      });
+
+      //if (err) return reject(err)
+      //const dbName = process.env.MONGO_URI.split('/').pop().split('?').shift()
+      //const db = mongoClient.db(dbName)
+      //return resolve(db.collection('users'))
     } else {
       // If no MongoDB URI string specified, use NeDB, an in-memory work-a-like.
       // NeDB is not persistant and is intended for testing only.
@@ -104,7 +121,7 @@ module.exports = () => {
         } else if (provider) {
           query = { [`${provider.name}.id`]: provider.id }
         }
-
+        console.log("find.query: " + query);
         return new Promise((resolve, reject) => {
           usersCollection.findOne(query, (err, user) => {
             if (err) return reject(err)
