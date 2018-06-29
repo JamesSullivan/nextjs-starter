@@ -97,11 +97,7 @@ module.exports = () => {
     } else {
       // If no MongoDB URI string specified, use NeDB, an in-memory work-a-like.
       // NeDB is not persistant and is intended for testing only.
-      let collection = new NeDB({ autoload: true })
-      collection.loadDatabase(err => {
-        if (err) return reject(err)
-        resolve(collection)
-      })
+      throw "No connection!";
     }  
   })
   .then(usersCollection => {
@@ -113,7 +109,7 @@ module.exports = () => {
         // Find needs to support looking up a user by ID, Email, Email Token,
         // and Provider Name + Users ID for that Provider
         if (id) {
-          query = { _id: MongoObjectId(id) }
+          query = { _id: id }
         } else if (email) {
           query = { email: email }
         } else if (emailToken) {
@@ -121,11 +117,22 @@ module.exports = () => {
         } else if (provider) {
           query = { [`${provider.name}.id`]: provider.id }
         }
-        console.log("find.query: " + query);
+        console.log("query: " + query);
+        console.log("typeof query: " + typeof query);
+        console.log("Object.keys(query): " + Object.keys(query))
+        console.log("query.email: " + query.email);
         return new Promise((resolve, reject) => {
-          usersCollection.findOne(query, (err, user) => {
-            if (err) return reject(err)
+          console.log("Promise Object.keys(query): " + Object.keys(query))
+          usersCollection.query("SELECT json_object('id', id, 'email', email, 'emailVerified', emailVerified, 'name', name) FROM starter.users where email =" + query.email + ";", (err, user) => {
+            if (err) {
+              console.error("query response user error: " + err)
+              return reject(err)
+            } else {
+            console.log("user: " + user);
+            console.log("Object.keys(user): " + Object.keys(user))
+            console.log("user.email: " + user.email);
             return resolve(user)
+            }
           })
         })
       },
@@ -158,7 +165,7 @@ module.exports = () => {
       // You can use this to capture profile.avatar, profile.location, etc.
       update: (user, profile) => {
         return new Promise((resolve, reject) => {
-          usersCollection.update({_id: MongoObjectId(user._id)}, user, {}, (err) => {
+          usersCollection.update({_id: user._id}, user, {}, (err) => {
             if (err) return reject(err)
             return resolve(user)
           })
@@ -170,7 +177,7 @@ module.exports = () => {
       // be in a future release, to provide an endpoint for account deletion.
       remove: (id) => {
         return new Promise((resolve, reject) => {
-          usersCollection.remove({_id: MongoObjectId(id)}, (err) => {
+          usersCollection.remove({_id: id}, (err) => {
             if (err) return reject(err)
             return resolve(true)
           })
@@ -194,7 +201,7 @@ module.exports = () => {
       // only fields you want to expose via the user interface.
       deserialize: (id) => {
         return new Promise((resolve, reject) => {
-          usersCollection.findOne({ _id: MongoObjectId(id) }, (err, user) => {
+          usersCollection.findOne({ _id: id }, (err, user) => {
             if (err) return reject(err)
               
             // If user not found (e.g. account deleted) return null object
