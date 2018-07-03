@@ -86,9 +86,9 @@ module.exports = () => {
           if (err) return reject(err)
           console.log('Data received from Db:\n');
           console.log(rows);
-          return resolve(rows)
         });
       });
+      return resolve(connection)
 
       //if (err) return reject(err)
       //const dbName = process.env.MONGO_URI.split('/').pop().split('?').shift()
@@ -123,14 +123,20 @@ module.exports = () => {
         console.log("query.email: " + query.email);
         return new Promise((resolve, reject) => {
           console.log("Promise Object.keys(query): " + Object.keys(query))
-          usersCollection.query("SELECT json_object('id', id, 'email', email, 'emailVerified', emailVerified, 'name', name) FROM starter.users where email =" + query.email + ";", (err, user) => {
+          usersCollection.query("SELECT id, jdoc FROM starter.users where jdoc->'$.email' ='" + query.email + "';", (err, dbuser) => {
             if (err) {
               console.error("query response user error: " + err)
               return reject(err)
             } else {
+            let user = null
+            console.log("dbuser[0]: " + dbuser[0])
+            if(dbuser[0] !== undefined) {
+              user = JSON.parse(dbuser[0].jdoc)
+              user._id = dbuser[0].id
+              console.log("Object.keys(user): " + Object.keys(user))
+              console.log("user.email: " + user.email);
+            }
             console.log("user: " + user);
-            console.log("Object.keys(user): " + Object.keys(user))
-            console.log("user.email: " + user.email);
             return resolve(user)
             }
           })
@@ -145,13 +151,16 @@ module.exports = () => {
       // You can use this to capture profile.avatar, profile.location, etc.
       insert: (user, oAuthProfile) => {
         return new Promise((resolve, reject) => {
-          usersCollection.insert(user, (err, response) => {
-            if (err) return reject(err)
-
-            // Mongo Client automatically adds an id to an inserted object, but 
+          console.log("Inserting user: " + JSON.stringify(user))
+          usersCollection.query('INSERT INTO starter.users SET jdoc=?', JSON.stringify(user), (err, response) => {
+            console.log("Inserting user started!")
+            if (err) {
+              console.warn(err)
+              return reject(err)
+            }
+            console.log(response)
             // if using a work-a-like we may need to add it from the response.
-            if (!user._id && response._id) user._id = response._id
-  
+            if (response.insertId) user._id = response.insertId
             return resolve(user)
           })
         })
@@ -164,8 +173,10 @@ module.exports = () => {
       //
       // You can use this to capture profile.avatar, profile.location, etc.
       update: (user, profile) => {
+        console.log("Updating user: " + user)
         return new Promise((resolve, reject) => {
-          usersCollection.update({_id: user._id}, user, {}, (err) => {
+          // usersCollection.update({_id: user._id}, user, {}, (err) => {
+          usersCollection.query("Update starter.users set jdoc where id ='" + user._id + "';", (err, dbuser) => {  
             if (err) return reject(err)
             return resolve(user)
           })
@@ -176,8 +187,10 @@ module.exports = () => {
       // This method is not used in the current version of next-auth but will
       // be in a future release, to provide an endpoint for account deletion.
       remove: (id) => {
+        console.log("Removing user: " + user)
         return new Promise((resolve, reject) => {
-          usersCollection.remove({_id: id}, (err) => {
+          // usersCollection.remove({_id: id}, (err) => {
+            usersCollection.query("DELETE FROM starter.users where id ='" + id + "';", (err, dbuser) => {  
             if (err) return reject(err)
             return resolve(true)
           })
@@ -185,6 +198,7 @@ module.exports = () => {
       },
       // Seralize turns the value of the ID key from a User object
       serialize: (user) => {
+        console.log("Serializing user: " + user)
         // Supports serialization from Mongo Object *and* deserialize() object
         if (user.id) {
           // Handle responses from deserialize()
@@ -200,6 +214,7 @@ module.exports = () => {
       // exported to clients. It should not return private/sensitive fields,
       // only fields you want to expose via the user interface.
       deserialize: (id) => {
+        console.log("Deserializing user: " + user)
         return new Promise((resolve, reject) => {
           usersCollection.findOne({ _id: id }, (err, user) => {
             if (err) return reject(err)
