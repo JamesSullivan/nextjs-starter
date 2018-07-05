@@ -1,7 +1,7 @@
 [![XO code style](https://img.shields.io/badge/code_style-XO-5ed9c7.svg)](https://github.com/sindresorhus/xo)
 # Next.js Starter Project
 
-This is a starter project for React that uses Next.js.
+This is a starter project for React that uses Next.js and MySQL instead of the usual MongoDB.
 
 It includes the following features:
 

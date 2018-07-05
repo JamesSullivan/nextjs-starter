@@ -45,7 +45,7 @@ require('dotenv').load()
 // This config includes options for NeDB, which it defaults to if no DB URI 
 // is specified. NeDB is an in-memory only database intended here for testing.
 const MYSQLClient = require('mysql')
-const NeDB = require('nedb')
+// const NeDB = require('nedb')
 
 
 // Use Node Mailer for email sign in
@@ -117,26 +117,29 @@ module.exports = () => {
         } else if (provider) {
           query = { [`${provider.name}.id`]: provider.id }
         }
-        console.log("query: " + query);
+        console.log("\r\nquery: " + JSON.stringify(query));
         console.log("typeof query: " + typeof query);
         console.log("Object.keys(query): " + Object.keys(query))
-        console.log("query.email: " + query.email);
+        console.log("query[Object.keys(query)]: " + query[Object.keys(query)]);
         return new Promise((resolve, reject) => {
-          console.log("Promise Object.keys(query): " + Object.keys(query))
-          usersCollection.query("SELECT id, jdoc FROM starter.users where jdoc->'$.email' ='" + query.email + "';", (err, dbuser) => {
+          let queryKey = Object.keys(query)
+          let queryValue = query[Object.keys(query)] 
+          let quote = typeof queryValue === "string" ? '\'' : ''
+          console.log("SELECT id, jdoc FROM starter.users where jdoc->'$." + Object.keys(query) + "'=" + quote + queryValue + quote + ";")
+          usersCollection.query("SELECT id, jdoc FROM starter.users where jdoc->'$." + Object.keys(query) + "'=" + quote + queryValue + quote+ ";", (err, dbuser) => {
             if (err) {
               console.error("query response user error: " + err)
               return reject(err)
             } else {
             let user = null
-            console.log("dbuser[0]: " + dbuser[0])
+            console.log("dbuser[0]: " + JSON.stringify(dbuser[0]))
             if(dbuser[0] !== undefined) {
               user = JSON.parse(dbuser[0].jdoc)
               user._id = dbuser[0].id
               console.log("Object.keys(user): " + Object.keys(user))
               console.log("user.email: " + user.email);
             }
-            console.log("user: " + user);
+            console.log("user: " + JSON.stringify(user));
             return resolve(user)
             }
           })
@@ -151,6 +154,7 @@ module.exports = () => {
       // You can use this to capture profile.avatar, profile.location, etc.
       insert: (user, oAuthProfile) => {
         return new Promise((resolve, reject) => {
+          user._id = 0
           console.log("Inserting user: " + JSON.stringify(user))
           usersCollection.query('INSERT INTO starter.users SET jdoc=?', JSON.stringify(user), (err, response) => {
             console.log("Inserting user started!")
@@ -173,10 +177,11 @@ module.exports = () => {
       //
       // You can use this to capture profile.avatar, profile.location, etc.
       update: (user, profile) => {
-        console.log("Updating user: " + user)
+        console.log("Updating user: " + JSON.stringify(user))
         return new Promise((resolve, reject) => {
           // usersCollection.update({_id: user._id}, user, {}, (err) => {
-          usersCollection.query("Update starter.users set jdoc where id ='" + user._id + "';", (err, dbuser) => {  
+          console.log("UPDATE starter.users SET jdoc=? where id ='" + user._id + "';")
+          usersCollection.query("UPDATE starter.users set jdoc=? where id =" + user._id + ";", JSON.stringify(user), (err, dbuser) => {  
             if (err) return reject(err)
             return resolve(user)
           })
@@ -187,10 +192,10 @@ module.exports = () => {
       // This method is not used in the current version of next-auth but will
       // be in a future release, to provide an endpoint for account deletion.
       remove: (id) => {
-        console.log("Removing user: " + user)
+        console.log("Removing user: " +  JSON.stringify(user))
         return new Promise((resolve, reject) => {
           // usersCollection.remove({_id: id}, (err) => {
-            usersCollection.query("DELETE FROM starter.users where id ='" + id + "';", (err, dbuser) => {  
+            usersCollection.query("DELETE FROM starter.users where id =" + id + ";", (err, dbuser) => {  
             if (err) return reject(err)
             return resolve(true)
           })
@@ -198,7 +203,7 @@ module.exports = () => {
       },
       // Seralize turns the value of the ID key from a User object
       serialize: (user) => {
-        console.log("Serializing user: " + user)
+        console.log("\r\nSerializing user: " + JSON.stringify(user))
         // Supports serialization from Mongo Object *and* deserialize() object
         if (user.id) {
           // Handle responses from deserialize()
@@ -214,21 +219,27 @@ module.exports = () => {
       // exported to clients. It should not return private/sensitive fields,
       // only fields you want to expose via the user interface.
       deserialize: (id) => {
-        console.log("Deserializing user: " + user)
+        console.log("\r\nDeserializing user id: " + id)
         return new Promise((resolve, reject) => {
-          usersCollection.findOne({ _id: id }, (err, user) => {
+         // usersCollection.findOne({ _id: id }, (err, user) => {
+          console.log("SELECT id, jdoc FROM starter.users where id='" + id + "';")
+          usersCollection.query("SELECT id, jdoc FROM starter.users where id=" + id + ";", (err, dbuser) => {  
             if (err) return reject(err)
               
             // If user not found (e.g. account deleted) return null object
-            if (!user) return resolve(null)
-              
-            return resolve({
-              id: user._id,
-              name: user.name,
-              email: user.email,
-              emailVerified: user.emailVerified,
-              admin: user.admin || false
-            })
+            if (dbuser[0] === undefined) return resolve(null)
+            let user = null
+            console.log("dbuser[0]: " + JSON.stringify(dbuser[0]))
+            if(dbuser[0] !== undefined) {
+              user = dbuser[0].jdoc
+              return resolve({
+                id: dbuser[0].id,
+                name: user.name,
+                email: user.email,
+                emailVerified: user.emailVerified,
+                admin: user.admin || false
+              })
+          }
           })
         })
       },
