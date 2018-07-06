@@ -8,22 +8,18 @@
  **/
 'use strict'
 
-// const MongoClient = require('mongodb').MongoClient
-const MYSQLClient = require('mysql')
+const MongoClient = require('mongodb').MongoClient
 
 let usersCollection
-if (process.env.MYSQL_URI) { 
+if (process.env.MONGO_URI) { 
   // Connect to MongoDB Database and return user connection
-  const connection = MYSQLClient.createConnection({
-    host: 'localhost',
-    port: 3306,
-    user: 'starter_user', 
-    password: 'starterPW1!', 
-    database: 'starter' 
+  MongoClient.connect(process.env.MONGO_URI, (err, mongoClient) => {
+    if (err) throw new Error(err)
+    const dbName = process.env.MONGO_URI.split('/').pop().split('?').shift()
+    const db = mongoClient.db(dbName)
+    usersCollection = db.collection('users')
   })
-  usersCollection = connection
-} 
-
+}
 
 module.exports = (expressApp) => {
 
@@ -60,15 +56,21 @@ module.exports = (expressApp) => {
 
     let result
     return new Promise(function(resolve, reject) {
-      console.log('SELECT * FROM users ORDER BY ' + sort + ' LIMIT ' + limit + ' OFFSET ' + skip + ';')
-      connection.query('SELECT jdoc FROM users ORDER BY ? LIMIT ? OFFSET ?;', sort, limit, skip, (err, users) => {
-        if (err) return reject(err)
-        console.log('Data received from Db:\n');
-        console.log(users);
-        resolve(users)
+      result = usersCollection
+      .find()
+      .skip(skip)
+      .sort(sort)
+      .limit(size)
+      
+      result.toArray((err, users) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(users)
+        }
       })
     })
-      .then(users => {
+    .then(users => {
       response.users = users
       return result.count()
     })

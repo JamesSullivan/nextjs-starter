@@ -29,7 +29,9 @@ export default class extends Page {
     }
     if (props.session.user) {
       this.state.name = props.session.user.name
-      this.state.email = props.session.user.email
+      //this.state.email = props.session.user.email
+      console.log("props.session.user.email: " + props.session.user.email)
+      if(props.session.user.email !== undefined) this.state.email = props.session.user.email
     }
     this.handleChange = this.handleChange.bind(this)
     this.onSubmit = this.onSubmit.bind(this)
